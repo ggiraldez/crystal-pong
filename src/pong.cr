@@ -15,5 +15,14 @@ renderer.clear
 renderer.copy texture, nil, nil
 renderer.present
 
-sleep 2
+quit = false
+
+until quit
+  SDL2.poll_events do |event|
+    puts "Event received: #{event.type}"
+    if event.type == LibSDL2::QUIT || event.type == LibSDL2::KEYDOWN
+      quit = true
+    end
+  end
+end
 
