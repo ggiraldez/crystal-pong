@@ -1,26 +1,33 @@
-class SDL2::Surface
-  getter surface
-  getter width
-  getter height
-  getter bpp
+struct SDL2::Surface
+  def initialize(@surface)
+  end
 
-  def initialize(@surface, @width, @height, @bpp)
+  def w
+    @surface.value.w
+  end
+
+  def h
+    @surface.value.h
+  end
+
+  def rect
+    Rect.new 0, 0, w, h
   end
 
   def lock
-    LibSDL2.lock_surface @surface
+    LibSDL2.lock_surface self
   end
 
   def unlock
-    LibSDL2.unlock_surface @surface
+    LibSDL2.unlock_surface self
   end
 
   def update_rect(x, y, w, h)
-    LibSDL2.update_rect @surface, x, y, w, h
+    LibSDL2.update_rect self, x, y, w, h
   end
 
   def flip
-    LibSDL2.flip @surface
+    LibSDL2.flip self
   end
 
   def []=(offset, color)
@@ -33,5 +40,13 @@ class SDL2::Surface
 
   def offset(x, y)
     x.to_i32 + (y.to_i32 * @width)
+  end
+
+  def free
+    LibSDL2.free_surface self
+  end
+
+  def to_unsafe
+    @surface
   end
 end

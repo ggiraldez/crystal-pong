@@ -1,24 +1,29 @@
 require "./*"
 
 module SDL2
-  def self.run(flags = LibSDL2::INIT_EVERYTHING)
+  def self.run(flags = INIT::EVERYTHING)
     init flags
-    yield
-    quit
+    begin
+      yield
+    ensure
+      quit
+    end
   end
 
-  def self.init(flags = LibSDL2::INIT_EVERYTHING)
+  def self.init(flags = INIT::EVERYTHING)
     if LibSDL2.init(flags) != 0
-      raise "Can't initialize SDL: #{error}"
+      SDL2.raise "Can't initialize SDL"
     end
   end
 
-  def self.load_bmp(file_name, width, height)
-    surface = LibSDL2.load_bmp_rw(LibSDL2.rw_from_file(file_name, "rb"), 1);
-    if surface.nil?
-      raise "Can't load \"#{file_name}\": #{error}"
-    end
-    Surface.new(surface, width, height, 0_u32) #TODO automatic surface size
+  def self.load_bmp_from_file(filename)
+    rw_ops = LibSDL2.rw_from_file(filename, "rb")
+    SDL2.raise "Can't load bitmap from '#{filename}'" unless rw_ops
+
+    bitmap = LibSDL2.load_bmp_rw(rw_ops, 1)
+    SDL2.raise "Can't load bitmap from '#{filename}'" unless bitmap
+
+    Surface.new bitmap
   end
 
   def self.show_cursor
@@ -31,6 +36,10 @@ module SDL2
 
   def self.error
     String.new LibSDL2.get_error
+  end
+
+  def self.raise(msg)
+    raise "#{msg}: #{error}"
   end
 
   def self.ticks

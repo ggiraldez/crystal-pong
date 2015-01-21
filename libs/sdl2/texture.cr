@@ -1,6 +1,4 @@
-class SDL2::Texture
-  getter texture
-
+struct SDL2::Texture
   def initialize(@texture)
   end
 

@@ -1,31 +1,28 @@
-class SDL2::Window
-  getter window
-  getter title
-  getter x
-  getter y
-  getter width
-  getter height
+struct SDL2::Window
+  POS_UNDEFINED = 0x1FFF0000
 
-  def initialize(@title, @x, @y, @width, @height, flags)
+  def initialize(title, x, y, width, height, flags : Flags)
     @window = LibSDL2.create_window(title, x, y, width, height, flags)
-    if @window.nil?
-      raise "Can't create SDL window: #{SDL2.error}"
-    end
+    SDL2.raise "Can't create SDL window" unless @window
   end
 
-  def get_surface()
-    surface = LibSDL2.get_window_surface(@window)
-    if surface.nil?
-      raise "Can't get surface: #{SDL2.error}"
-    end
-    return surface
+  def create_renderer(index = -1, flags = Renderer::Flags::None)
+    Renderer.new self, index, flags
   end
 
-  def update_surface()
-    value = LibSDL2.update_window_surface(@window)
-    if value != 0
-      raise "Can't update window surface: #{SDL2.error}"
-    end
+  def get_surface
+    surface = LibSDL2.get_window_surface(self)
+    SDL2.raise "Can't get surface" unless surface
+    surface
   end
 
+  def update_surface
+    value = LibSDL2.update_window_surface(self)
+    SDL2.raise "Can't update window surface" unless value == 0
+    value
+  end
+
+  def to_unsafe
+    @window
+  end
 end
