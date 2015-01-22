@@ -39,7 +39,7 @@ module SDL2
   end
 
   def self.raise(msg)
-    raise "#{msg}: #{error}"
+    ::raise "#{msg}: #{error}"
   end
 
   def self.ticks
