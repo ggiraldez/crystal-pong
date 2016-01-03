@@ -100,6 +100,43 @@ def update_all(world, paddles, ball, scores, controls, dt)
   end
 end
 
+class Numbers
+  def initialize(@texture, @rect)
+  end
+
+  def digit_width
+    @rect.w / 10
+  end
+
+  def digit_height
+    @rect.h
+  end
+
+  def digit_rect(digit)
+    digit = Math.max(Math.min(digit, 9), 0)
+    Rect.new digit * digit_width, 0, digit_width, digit_height
+  end
+
+  def render(renderer, number, right_align, x, y)
+    digits = [] of Int32
+    if number == 0
+      digits << 0
+    end
+    while number > 0
+      digits << number % 10
+      number = number / 10
+    end
+    digits.reverse!
+    if right_align
+      x -= digit_width * digits.size
+    end
+    digits.each do |d|
+      renderer.copy @texture, digit_rect(d), Rect.new(x, y, digit_width, digit_height)
+      x += digit_width
+    end
+  end
+end
+
 def load_texture(renderer, filename)
   bitmap = SDL2.load_bmp_from_file filename
   bitmap_rect = bitmap.rect
@@ -116,6 +153,7 @@ renderer = window.create_renderer flags: Renderer::Flags::ACCELERATED | Renderer
 
 paddle_tex, paddle_rect = load_texture renderer, "assets/GreenPaddle.bmp"
 ball_tex, ball_rect = load_texture renderer, "assets/Ball.bmp"
+numbers_tex, numbers_rect = load_texture renderer, "assets/Numbers.bmp"
 
 world = World.new GAME_WIDTH, GAME_HEIGHT
 paddles = [Paddle.new(paddle_tex, paddle_rect), Paddle.new(paddle_tex, paddle_rect)]
@@ -123,6 +161,7 @@ paddles[0].x = 10 + paddle_rect.w / 2
 paddles[0].y = (GAME_HEIGHT - paddle_rect.h) / 2
 paddles[1].x = GAME_WIDTH - paddle_rect.w / 2 - 10
 paddles[1].y = (GAME_HEIGHT - paddle_rect.h) / 2
+numbers = Numbers.new numbers_tex, numbers_rect
 
 scores = [0,0]
 paddles[0].speed_modifier = 1
@@ -185,6 +224,8 @@ until quit
   renderer.clear
   paddles.each &.render(renderer)
   ball.render renderer
+  numbers.render renderer, scores[0], false, 10, 10
+  numbers.render renderer, scores[1], true, GAME_WIDTH - 10, 10
   renderer.present
 
   last_ticks = now_ticks
