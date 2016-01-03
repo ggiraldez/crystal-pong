@@ -2,6 +2,8 @@ require "sdl2"
 
 include SDL2
 
+RAND = Random.new
+
 UP = 0
 DOWN = 1
 LEFT = 2
@@ -22,25 +24,79 @@ class Entity
   end
 
   def render(renderer)
-    rect = Rect.new @x.to_i, @y.to_i, @tex_rect.w, @tex_rect.h
+    rect = Rect.new @x.to_i - (@tex_rect.w / 2), @y.to_i - (@tex_rect.h / 2), @tex_rect.w, @tex_rect.h
     renderer.copy @texture, @tex_rect, rect
   end
 end
 
 class Ball < Entity
   property vx, vy
+  property hold
+
+  @hold = 2000
   @vx = 0.0
   @vy = 0.0
+
+  def r
+    (h + w) / 4
+  end
 end
 
-def update_all(world, paddles, ball, controls, dt)
-  ball.x += ball.vx * dt
-  ball.y += ball.vy * dt
+class Paddle < Entity
+  property speed_modifier
+  @speed_modifier = 0.5
+end
+
+def reset_ball(ball)
+  ball.x = GAME_WIDTH / 2
+  ball.y = GAME_HEIGHT / 2
+  ball.vx = -ball.vx
+  ball.vy = 0.3 * (RAND.rand > 0.5 ? -1 : 1)
+  ball.hold = 2000
+end
+
+def update_all(world, paddles, ball, scores, controls, dt)
+  if ball.hold > 0
+    ball.hold -= dt
+  else
+    ball.x += ball.vx * dt
+    ball.y += ball.vy * dt
+  end
+
+  if (ball.y < ball.r && ball.vy < 0) || (ball.y > (world.h - ball.r) && ball.vy > 0)
+    ball.vy = -ball.vy
+  end
+
+  if ball.vx < 0
+    if ball.x < ball.r
+      scores[1] += 1
+      reset_ball ball
+    elsif ball.x - ball.r < paddles[0].x + paddles[0].w / 2
+      if ball.y + ball.r > paddles[0].y - paddles[0].h/2 &&
+          ball.y - ball.r < paddles[0].y + paddles[0].h/2
+        ball.vx = -ball.vx
+        ball.vy = (ball.y - paddles[0].y) / paddles[0].h
+      end
+    end
+  end
+
+  if ball.vx > 0
+    if ball.x > (world.w - ball.r)
+      scores[0] += 1
+      reset_ball ball
+    elsif ball.x + ball.r > paddles[1].x - paddles[1].w / 2
+      if ball.y + ball.r > paddles[1].y - paddles[1].h/2 &&
+          ball.y - ball.r < paddles[1].y + paddles[1].h/2
+        ball.vx = -ball.vx
+        ball.vy = (ball.y - paddles[1].y) / paddles[1].h
+      end
+    end
+  end
 
   paddles.each_with_index do |paddle, i|
-    paddle.y += (controls[i][DOWN] - controls[i][UP]) * dt
-    paddle.y = world.h - paddle.h if paddle.y > world.h - paddle.h
-    paddle.y = 0 if paddle.y < 0
+    paddle.y += (controls[i][DOWN] - controls[i][UP]) * dt * paddle.speed_modifier
+    paddle.y = world.h - paddle.h/2 if paddle.y > world.h - paddle.h/2
+    paddle.y = paddle.h/2 if paddle.y < paddle.h/2
   end
 end
 
@@ -62,18 +118,22 @@ paddle_tex, paddle_rect = load_texture renderer, "assets/GreenPaddle.bmp"
 ball_tex, ball_rect = load_texture renderer, "assets/Ball.bmp"
 
 world = World.new GAME_WIDTH, GAME_HEIGHT
-paddles = [Entity.new(paddle_tex, paddle_rect), Entity.new(paddle_tex, paddle_rect)]
-paddles[0].x = 10
+paddles = [Paddle.new(paddle_tex, paddle_rect), Paddle.new(paddle_tex, paddle_rect)]
+paddles[0].x = 10 + paddle_rect.w / 2
 paddles[0].y = (GAME_HEIGHT - paddle_rect.h) / 2
-paddles[1].x = GAME_WIDTH - paddle_rect.w - 10
+paddles[1].x = GAME_WIDTH - paddle_rect.w / 2 - 10
 paddles[1].y = (GAME_HEIGHT - paddle_rect.h) / 2
+
+scores = [0,0]
+paddles[0].speed_modifier = 1
+paddles[1].speed_modifier = 0.4
 
 ball = Ball.new(ball_tex, ball_rect)
 ball.x = (GAME_WIDTH - ball_rect.w) / 2
 ball.y = (GAME_HEIGHT - ball_rect.h) / 2
 
-ball.vx = 0.5
-ball.vy = 0.5
+ball.vx = 0.5 * (RAND.rand > 0.5 ? -1 : 1)
+ball.vy = 0.5 * (RAND.rand > 0.5 ? -1 : 1)
 
 quit = false
 
@@ -97,26 +157,30 @@ until quit
       when Scancode::ESCAPE
         quit = true
       when Scancode::UP
-        controls[1][UP] = is_down
-      when Scancode::DOWN
-        controls[1][DOWN] = is_down
-      when Scancode::LEFT
-        controls[1][LEFT] = is_down
-      when Scancode::RIGHT
-        controls[1][RIGHT] = is_down
-      when Scancode::W
         controls[0][UP] = is_down
-      when Scancode::S
+      when Scancode::DOWN
         controls[0][DOWN] = is_down
-      when Scancode::A
+      when Scancode::LEFT
         controls[0][LEFT] = is_down
-      when Scancode::D
+      when Scancode::RIGHT
         controls[0][RIGHT] = is_down
       end
     end
   end
 
-  update_all world, paddles, ball, controls, dt
+  # "AI"
+  if ball.y > paddles[1].y + ball.r
+    controls[1][DOWN] = 1
+    controls[1][UP] = 0
+  elsif ball.y < paddles[1].y - ball.r
+    controls[1][DOWN] = 0
+    controls[1][UP] = 1
+  else
+    controls[1][UP] = 0
+    controls[1][DOWN] = 0
+  end
+
+  update_all world, paddles, ball, scores, controls, dt
 
   renderer.clear
   paddles.each &.render(renderer)
@@ -127,7 +191,7 @@ until quit
   frames += 1
 
   if now_ticks - frames_ticks > 1000
-    puts "FPS: #{frames.to_f / (now_ticks - frames_ticks) * 1000}"
+    #puts "FPS: #{frames.to_f / (now_ticks - frames_ticks) * 1000}"
     frames_ticks = now_ticks
     frames = 0
   end
